@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sale Deed Generator with Real-time Preview</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- docx.js Library -->
+    <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+    <!-- FileSaver -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; }
+        
+        /* A4 Preview Styles */
+        .preview-container {
+            background-color: #e2e8f0;
+            overflow-y: auto;
+            padding: 20px;
+            height: calc(100vh - 80px);
+        }
+        
+        .a4-page {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            color: black;
+            box-sizing: border-box;
+            position: relative;
+            line-height: 1.5;
+        }
+
+        .a4-page p {
+            margin-bottom: 12pt;
+            text-align: justify;
+        }
+
+        .a4-page table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15pt;
+            font-size: 11pt;
+        }
+
+        .a4-page table, .a4-page th, .a4-page td {
+            border: 1px solid black;
+        }
+
+        .a4-page td {
+            padding: 4px 8px;
+        }
+
+        .no-border-table, .no-border-table td {
+            border: none !important;
+            padding: 2px 4px;
+        }
+
+        .page-break-visual {
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 10px 0;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white py-3 px-6 shadow-md shrink-0 flex justify-between items-center z-10">
+        <h1 class="text-lg font-bold flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Sale Deed Generator
+        </h1>
+        <button onclick="generateWordDocument()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded shadow transition text-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download Word (.docx)
+        </button>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex flex-1 overflow-hidden">
+        
+        <!-- LEFT SIDE: Form -->
+        <section class="w-[450px] bg-white border-r border-slate-300 overflow-y-auto p-5 shrink-0 shadow-lg z-10">
+            <form id="deedForm" oninput="updatePreview()" class="space-y-6">
+                
+                <!-- Property -->
+                <div>
+                    <h2 class="text-md font-bold text-blue-700 border-b pb-1 mb-3">1. Property Details</h2>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Plot Area (Sq. Yds)</label>
+                            <input type="number" id="plotAreaYds" value="52" step="0.01" class="w-full p-1.5 border rounded text-sm font-bold text-blue-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Consideration (Rs.)</label>
+                            <input type="number" id="considerationAmount" value="2500000" class="w-full p-1.5 border rounded text-sm font-bold text-green-700">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Colony Name</label>
+                            <input type="text" id="colonyName" value="DASHRATH PURI" class="w-full p-1.5 border rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Category</label>
+                            <input type="text" id="category" value="“G”" class="w-full p-1.5 border rounded text-sm">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs font-semibold mb-1">Duty Header (Gender)</label>
+                        <select id="genderOption" class="w-full p-1.5 border rounded text-sm font-semibold">
+                            <option value="For Male">For Male</option>
+                            <option value="For Female">For Female</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs font-semibold mb-1">Full Property Address</label>
+                        <textarea id="propertyDesc" rows="3" class="w-full p-1.5 border rounded text-xs">BUILT-UP PROPERTY NO. RZ-28/195,IN GALI NO 14 (ENTIRE THIRD FLOOR WITH ROOF RIGHTS), LAND AREA MEASURING 52 SQ.YDS., OUT OF KHASRA NO. 195, SITUATED IN THE AREA OF VILLAGE NASIRPUR, DELHI STATE DELHI, COLONY KNOWN AS DURGA PARK , NEW DELHI-110045</textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div><label class="block font-semibold mb-1">East</label><input type="text" id="boundEast" value="PORTION OF PROPERTY." class="w-full p-1.5 border rounded"></div>
+                        <div><label class="block font-semibold mb-1">West</label><input type="text" id="boundWest" value="ROAD 20 FT" class="w-full p-1.5 border rounded"></div>
+                        <div><label class="block font-semibold mb-1">North</label><input type="text" id="boundNorth" value="PORTION OF PROPERTY." class="w-full p-1.5 border rounded"></div>
+                        <div><label class="block font-semibold mb-1">South</label><input type="text" id="boundSouth" value="OTHERS PROPERTY." class="w-full p-1.5 border rounded"></div>
+                    </div>
+                </div>
+
+                <!-- Vendor -->
+                <div>
+                    <h2 class="text-md font-bold text-blue-700 border-b pb-1 mb-3">2. Seller (Vendor)</h2>
+                    <div class="space-y-2">
+                        <div><label class="block text-xs font-semibold mb-1">Full Name</label><input type="text" id="vName" value="HAVEN CHANDRA JOSHI" class="w-full p-1.5 border rounded text-sm uppercase"></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold mb-1">Relation</label>
+                                <select id="vRelType" class="w-full p-1.5 border rounded text-sm">
+                                    <option value="SON OF">SON OF</option>
+                                    <option value="DAUGHTER OF">DAUGHTER OF</option>
+                                    <option value="WIFE OF">WIFE OF</option>
+                                    <option value="CARE OF">CARE OF</option>
+                                </select>
+                            </div>
+                            <div><label class="block text-xs font-semibold mb-1">Relative Name</label><input type="text" id="vRelName" value="SHRI REWA DHAR JOSHI" class="w-full p-1.5 border rounded text-sm uppercase"></div>
+                        </div>
+                        <div><label class="block text-xs font-semibold mb-1">Address</label><input type="text" id="vAddress" value="RZ-49A/216 J-BLOCK,WEST SAGARPUR ,DELHI-110046" class="w-full p-1.5 border rounded text-sm"></div>
+                    </div>
+                </div>
+
+                <!-- Vendee -->
+                <div>
+                    <h2 class="text-md font-bold text-blue-700 border-b pb-1 mb-3">3. Buyer (Vendee)</h2>
+                    <div class="space-y-2">
+                        <div><label class="block text-xs font-semibold mb-1">Full Name</label><input type="text" id="dName" value="MADHU VARMA" class="w-full p-1.5 border rounded text-sm uppercase"></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold mb-1">Relation</label>
+                                <select id="dRelType" class="w-full p-1.5 border rounded text-sm">
+                                    <option value="SON OF">SON OF</option>
+                                    <option value="DAUGHTER OF">DAUGHTER OF</option>
+                                    <option value="WIFE OF">WIFE OF</option>
+                                    <option value="CARE OF">CARE OF</option>
+                                </select>
+                            </div>
+                            <div><label class="block text-xs font-semibold mb-1">Relative Name</label><input type="text" id="dRelName" value="SHRI KISHAN" class="w-full p-1.5 border rounded text-sm uppercase"></div>
+                        </div>
+                        <div><label class="block text-xs font-semibold mb-1">Address</label><input type="text" id="dAddress" value="HN RZ C-77 NEAR JINDAL PUBLIC SCHOOL DWARIKAPURI VJAY ENCLAVE,DELHI-110045" class="w-full p-1.5 border rounded text-sm"></div>
+                    </div>
+                </div>
+
+                <!-- Prior Owner & Witnesses -->
+                <div>
+                    <h2 class="text-md font-bold text-blue-700 border-b pb-1 mb-3">4. Prior Owner (GPA)</h2>
+                    <input type="text" id="priorOwner" value="SMT.VIMLA SHARMA Wife of SH. RAVINDER SHARMA" class="w-full p-1.5 border rounded text-sm">
+                </div>
+
+                <div>
+                    <h2 class="text-md font-bold text-blue-700 border-b pb-1 mb-3">5. Witnesses (Page 6)</h2>
+                    <div class="mb-3 space-y-2">
+                        <h3 class="text-xs font-bold text-slate-600">Witness 1</h3>
+                        <input type="text" id="w1Name" value="SHRI NAME SINGH" class="w-full p-1.5 border rounded text-sm uppercase">
+                        <div class="grid grid-cols-2 gap-2">
+                            <select id="w1RelType" class="w-full p-1.5 border rounded text-sm"><option value="S/O">S/O</option><option value="D/O">D/O</option><option value="W/O">W/O</option><option value="C/O">C/O</option></select>
+                            <input type="text" id="w1RelName" value="SHRI PAL SINGH" class="w-full p-1.5 border rounded text-sm uppercase">
+                        </div>
+                        <input type="text" id="w1Address" value="RZ-C-56,DWARKAPURI, VJAY ENCLAVE, DABRI, SOUTH WEST DELHI-110045" class="w-full p-1.5 border rounded text-xs">
+                        <input type="text" id="w1Aadhar" value="9666-3937-0106" class="w-full p-1.5 border rounded text-sm">
+                    </div>
+                    <div class="space-y-2">
+                        <h3 class="text-xs font-bold text-slate-600">Witness 2</h3>
+                        <input type="text" id="w2Name" value="SHRI SATENDRA KUMAR SHARMA" class="w-full p-1.5 border rounded text-sm uppercase">
+                        <div class="grid grid-cols-2 gap-2">
+                            <select id="w2RelType" class="w-full p-1.5 border rounded text-sm"><option value="S/O">S/O</option><option value="D/O">D/O</option><option value="W/O">W/O</option><option value="C/O">C/O</option></select>
+                            <input type="text" id="w2RelName" value="SHRI THAKUR PRASAD SHARMA" class="w-full p-1.5 border rounded text-sm uppercase">
+                        </div>
+                        <input type="text" id="w2Address" value="RZ-A-2/47,GALI NO-2A,DURGA PARK,NASIR PUR,SOUTH WEST DELHI-110045" class="w-full p-1.5 border rounded text-xs">
+                        <input type="text" id="w2Aadhar" value="6361-4057-9528" class="w-full p-1.5 border rounded text-sm">
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- RIGHT SIDE: Real-time Preview -->
+        <section class="flex-1 preview-container" id="previewContainer">
+            <!-- JS will inject A4 pages here -->
+        </section>
+
+    </main>
+
+    <script>
+        // --- Calculation Logic ---
+        function calculateValuation() {
+            const sqYds = parseFloat(document.getElementById('plotAreaYds').value) || 0;
+            const consideration = parseFloat(document.getElementById('considerationAmount').value) || 0;
+            
+            const sqMtr = (sqYds * 0.836127).toFixed(2);
+            const totalPlinth = (sqMtr * 4).toFixed(2);
+            
+            const landRate = 46200;
+            const constRate = 6960;
+
+            const landVal = Math.round(sqMtr * landRate);
+            const constVal = Math.round(totalPlinth * constRate);
+            const totalVal = landVal + constVal;
+            
+            const duty = Math.round(consideration * 0.06);
+            const formatNum = (num) => new Intl.NumberFormat('en-IN').format(num);
+
+            return { sqYds, sqMtr, totalPlinth, landRate, constRate, landVal, constVal, totalVal, consideration, duty, formatNum };
+        }
+
+        // --- Data Collection ---
+        function getData() {
+            return {
+                colony: document.getElementById('colonyName').value,
+                category: document.getElementById('category').value,
+                genderLabel: document.getElementById('genderOption').value,
+                propDesc: document.getElementById('propertyDesc').value,
+                priorOwner: document.getElementById('priorOwner').value,
+                eB: document.getElementById('boundEast').value,
+                wB: document.getElementById('boundWest').value,
+                nB: document.getElementById('boundNorth').value,
+                sB: document.getElementById('boundSouth').value,
+                
+                vName: document.getElementById('vName').value,
+                vRel: document.getElementById('vRelType').value,
+                vRelName: document.getElementById('vRelName').value,
+                vAddress: document.getElementById('vAddress').value,
+                
+                dName: document.getElementById('dName').value,
+                dRel: document.getElementById('dRelType').value,
+                dRelName: document.getElementById('dRelName').value,
+                dAddress: document.getElementById('dAddress').value,
+                
+                w1Name: document.getElementById('w1Name').value,
+                w1Rel: document.getElementById('w1RelType').value,
+                w1RelName: document.getElementById('w1RelName').value,
+                w1Address: document.getElementById('w1Address').value,
+                w1Aadhar: document.getElementById('w1Aadhar').value,
+                
+                w2Name: document.getElementById('w2Name').value,
+                w2Rel: document.getElementById('w2RelType').value,
+                w2RelName: document.getElementById('w2RelName').value,
+                w2Address: document.getElementById('w2Address').value,
+                w2Aadhar: document.getElementById('w2Aadhar').value,
+            };
+        }
+
+        // --- Real-time Preview Generator ---
+        function updatePreview() {
+            const calc = calculateValuation();
+            const data = getData();
+            const f = calc.formatNum;
+
+            const html = `
+                <!-- PAGE 1 -->
+                <div class="a4-page">
+                    <div style="text-align: center; font-weight: bold; margin-bottom: 20px;">
+                        SALE DEED FOR Rs. ${f(calc.consideration)}/-
+                    </div>
+                    <div style="font-weight: bold; margin-bottom: 10px;">Description of property</div>
+                    
+                    <table>
+                        <tr><td style="width: 50%;">Name of the Colony/Area</td><td>: ${data.colony}</td></tr>
+                        <tr><td>Category</td><td>: ${data.category}</td></tr>
+                        <tr><td>Total Area of Plot in Sq. Mtr.(${calc.sqYds}sq.yds)</td><td>: ${calc.sqMtr} Sq. Mtr.</td></tr>
+                        <tr><td>Total Plinth area of Property</td><td>: ${calc.totalPlinth} Sq.Mtrs.</td></tr>
+                        <tr><td>Plinth area under sale</td><td>: ${calc.sqMtr} Sq.Mtrs</td></tr>
+                        <tr><td>Land Use</td><td>: Residential</td></tr>
+                        <tr><td>Minimum price of land fixed by the Govt.</td><td>: Rs. ${f(calc.landRate)}/- per Sq. Mtr.</td></tr>
+                        <tr><td>Minimum value of land</td><td>: ${calc.sqMtr} X Rs.${f(calc.landRate)}/- =Rs.${f(calc.landVal)}/-</td></tr>
+                        <tr><td>Minimum price of Const. Fixed by the Govt.</td><td>: Rs. ${f(calc.constRate)}/- per Sq.Mtrs.</td></tr>
+                        <tr><td>Minimum value of Construction</td><td>: ${calc.sqMtr} X4X Rs.${f(calc.constRate)}/- = Rs.${f(calc.constVal)}/-</td></tr>
+                        <tr style="font-weight: bold;"><td>Total Value of Property</td><td>: Rs.${f(calc.totalVal)}/-</td></tr>
+                        <tr style="font-weight: bold;"><td>Total stamp duty paid on</td><td>: Rs.${f(calc.consideration)}/-</td></tr>
+                    </table>
+
+                    <div style="text-align: right; margin-top: 40px;">
+                        <div style="font-weight: bold;">${data.genderLabel}</div>
+                        <div>Corporation Duty..3 %..@..Rs.${f(calc.consideration * 0.03)}/-</div>
+                        <div>Stamp Duty..3 %..@..Rs.${f(calc.consideration * 0.03)}/-</div>
+                        <div style="font-weight: bold;">Total Duty ..6%..@..Rs.${f(calc.duty)}/-</div>
+                    </div>
+                </div>
+                <div class="page-break-visual">--- PAGE BREAK ---</div>
+
+                <!-- PAGE 2 -->
+                <div class="a4-page">
+                    <p>This SALE DEED is made and executed at New Delhi on this --------by and between:-</p>
+                    <p><b>${data.vName} ${data.vRel} ${data.vRelName}</b> RESIDENT OF <b>${data.vAddress}</b>, Hereinafter referred to as "the VENDOR" (which expression, herein used, shall mean and include her legal heirs, successors, legal representatives, administrators, executors, nominees and assignees) of the one part.</p>
+                    <p style="text-align: center; font-weight: bold;">IN FAVOUR OF</p>
+                    <p><b>${data.dName} ${data.dRel} ${data.dRelName}</b> RESIDENT OF <b>${data.dAddress}</b>, Hereinafter called "The VENDEES", (which expression, herein used, shall mean and include her legal heirs, successors, legal representatives, administrators, executors, nominees and assignees of the other part.</p>
+                    <p>WHEREAS the VENDOR is the absolute and exclusive owner and in possession of <b>${data.propDesc}</b>, and the above mentioned property is bounded as under :-</p>
+                    
+                    <table class="no-border-table" style="margin-top: 20px;">
+                        <tr>
+                            <td style="width: 15%; font-weight: bold;">EAST</td><td style="width: 5%; font-weight: bold;">:-</td><td style="width: 30%; font-weight: bold;">${data.eB}</td>
+                            <td style="width: 15%; font-weight: bold;">WEST</td><td style="width: 5%; font-weight: bold;">:-</td><td style="width: 30%; font-weight: bold;">${data.wB}</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold;">NORTH</td><td style="font-weight: bold;">:-</td><td style="font-weight: bold;">${data.nB}</td>
+                            <td style="font-weight: bold;">SOUTH</td><td style="font-weight: bold;">:-</td><td style="font-weight: bold;">${data.sB}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="page-break-visual">--- PAGE BREAK ---</div>
+
+                <!-- PAGE 3 -->
+                <div class="a4-page">
+                    <p>(hereinafter referred to as the "Said Property") vide GPA duly Notarized by the Notary Public Delhi, having purchased from <b>${data.priorOwner}</b> to do all acts, deeds and things including the power to sell and transfer the same in any manner.</p>
+                    <p>AND WHEREAS the VENDOR has full power and absolute authority to sell and transfer the aforesaid property unto the VENDEES, and to receive the sale consideration in her own name and neither anyone else has any right, title and interest in the aforesaid property nor there is any legal impediment which prohibits the VENDOR to sell the same unto the VENDEES.</p>
+                    <p>AND WHEREAS the VENDOR has agreed to sell, convey, transfer and assign her all rights, titles and interests in the aforesaid <b>${data.propDesc}</b>, hereinafter referred to as "the said property", alongwith all benefits, facilities, privileges, easements or advantages belonging to or in any way appertaining to the said property to the VENDEES.</p>
+                    <p>AND WHEREAS the VENDEES has agreed to purchase, acquire and possess the said property relying on the various assurances, covenants, representations, statements and undertaking given by the VENDOR and believing the same to be true and acting on the faith thereof and on the terms and conditions mentioned hereunder.</p>
+                </div>
+                <div class="page-break-visual">--- PAGE BREAK ---</div>
+
+                <!-- PAGE 4 -->
+                <div class="a4-page">
+                    <p style="text-align: center; font-weight: bold;">NOW THIS SALE DEED WITNESSETH AS UNDER:-</p>
+                    <p>1. That in consideration of the said sum of Rs.${f(calc.consideration)}/- (Rupees Twenty Five Lakh only), the VENDOR hereby sell, convey, alienate and transfer all her rights, titles and interests in the said property, along with boundary wall, fittings, fixtures and super structure thereon and all other estate rights whatsoever, including all easements, appurtenances to the said property as also enjoyed or reputed to be enjoyed therewith unto the VENDEES, in perfect and absolute ownership without any hindrance, disturbance, whatsoever, TO HAVE, TO HOLD AND TO ENJOY THE SAME ABSOLUTELY AND FOREVER.</p>
+                    <p>2. That the VENDOR hereby explicitly admits and declares that receiving the aforesaid consideration in full and final payment, now nothing is left due from the VENDEES to the VENDOR against sale consideration for the purchase of the said property, as the aforesaid consideration represents the full and final consideration for the transaction.</p>
+                    <p>3. That the VENDOR has delivered the peaceful and actual physical vacant possession of the said property unto the VENDEES on the spot.</p>
+                    <p>4. That the VENDOR hereby sell, grant, convey, transfer and assign, with the ownership rights of the said property together with the super structure thereon, unto the VENDEES, and the VENDOR hereby transfers all her rights, titles and interests, along with all the rights, privileges, easements and appurtenances, whatsoever in the said property, belonging and usually held therewith including all electric, water and all the estate right, title, and interest in the said property, hereby conveyed, and every part thereof TO HAVE AND TO HOLD THE SAME unto the VENDEES absolutely and forever.</p>
+                </div>
+                <div class="page-break-visual">--- PAGE BREAK ---</div>
+
+                <!-- PAGE 5 -->
+                <div class="a4-page">
+                    <p>5. That the VENDOR hereby assure the VENDEES that the said property, hereby conveyed, is free from all sorts of charges, encumbrances, lien, loan, claims, demands, and liabilities, surety, security, legal flaws, disputes, sale, mortgage, gift, liabilities, disabilities, injunction, notifications for acquisitions/requisition, and if ever it is proved to be otherwise and the VENDEES suffers, due to any legal defect in the title of the VENDOR, any loss and/or whole or any part of the said property, hereby conveyed, is taken away from the possession of the VENDEES, then the VENDOR will make good the losses thus suffered by the VENDEES in this regard and shall keep the VENDEES indemnified against all losses, costs, damages and expenses accruing thereby to the VENDEES.</p>
+                    <p>6. That the VENDOR hereby further assure the VENDEES that she or anyone else claiming from or through the VENDOR has not created any encumbrances or license or restriction thereon nor there is any claim or litigation or legal proceeding injunction or attachment concerning the said property.</p>
+                    <p>7. That the VENDOR now admits that she has been left with no right, title and interest of any nature, whatsoever may be in the said property, and the VENDEES has become the absolute owner of the same and she will use and enjoy the same in any manner, she likes, including right to sell, transfer or alienate the said property to anyone including the right to give the same on rent to anyone and to receive the rent and profit to the tenant(s) evicted through the process of law or by negotiation, to take possession etc.</p>
+                    <p>8. That the VENDEES can get the mutation of the said property in her own name in the absence of the VENDOR on the basis of this sale deed or its certified true copy in the revenue records.</p>
+                </div>
+                <div class="page-break-visual">--- PAGE BREAK ---</div>
+
+                <!-- PAGE 6 -->
+                <div class="a4-page">
+                    <p>9. That the VENDOR and all persons claiming under or through the VENDOR shall and will as and when required by the VENDEES and at the VENDEE'S costs to do all act and execute all documents and authorities as be reasonable required by the VENDEES for more fully effecting the sale being hereby made or for more fully owning and enjoying the said property or defending any action or proceeding concerning the same.</p>
+                    <p>10. That VENDOR will be responsible for the payment of the rates, cesses, taxes, payable in respect of the said property, up to date, and thereafter the VENDEES will be responsible for the payment of the same.</p>
+                    <p>11. That the VENDEES has paid the stamp duty, transfer duty, registration charges and other incidental charges for the execution of this Sale deed.</p>
+                    <p>12. That both the parties, hereto i.e. the VENDOR and the VENDEES are Indian National.</p>
+                    <p>IN WITNESS WHEREOF, the VENDOR and the VENDEES have set subscribed their hands to this sale deed on the day, month and year, first mentioned above, in the presence of the following witnesses.</p>
+                    
+                    <table class="no-border-table" style="margin-top: 30px;">
+                        <tr>
+                            <td style="width: 50%; vertical-align: top;">
+                                <p style="font-weight: bold; margin-bottom: 10px;">WITNESSES:-</p>
+                                <p style="margin-bottom: 15px;">
+                                    1. <b>${data.w1Name}</b><br>
+                                    ${data.w1Rel} ${data.w1RelName}<br>
+                                    ${data.w1Address}<br>
+                                    <b>(AADHAR NO. ${data.w1Aadhar})</b>
+                                </p>
+                                <p>
+                                    2. <b>${data.w2Name}</b><br>
+                                    ${data.w2Rel} ${data.w2RelName}<br>
+                                    ${data.w2Address}<br>
+                                    <b>(AADHAR NO. ${data.w2Aadhar})</b>
+                                </p>
+                            </td>
+                            <td style="width: 50%; vertical-align: top; text-align: right; padding-top: 20px;">
+                                <p style="font-weight: bold; margin-bottom: 60px;">VENDOR</p>
+                                <p style="font-weight: bold; margin-top: 60px;">VENDEES</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('previewContainer').innerHTML = html;
+        }
+
+        // Run on load
+        window.onload = updatePreview;
+
+        // --- Word Generation Logic ---
+        async function generateWordDocument() {
+            const calc = calculateValuation();
+            const data = getData();
+            const f = calc.formatNum;
+
+            const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, PageBreak, BorderStyle } = docx;
+
+            const pStandard = (text, bold = false, align = AlignmentType.JUSTIFIED) => new Paragraph({
+                alignment: align,
+                spacing: { line: 240, before: 60, after: 60 },
+                children: [new TextRun({ text: text, bold: bold, size: 22, font: "Times New Roman" })]
+            });
+
+            const pBody = (text, bold = false, align = AlignmentType.JUSTIFIED) => new Paragraph({
+                alignment: align,
+                spacing: { line: 360, before: 120, after: 240 }, 
+                children: [new TextRun({ text: text, bold: bold, size: 24, font: "Times New Roman" })]
+            });
+
+            const cellBorder = {
+                top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" }
+            };
+
+            // Page 1 Table
+            const p1TableRows = [
+                ["Name of the Colony/Area", `: ${data.colony}`],
+                ["Category", `: ${data.category}`],
+                [`Total Area of Plot in Sq. Mtr.(${calc.sqYds}sq.yds)`, `: ${calc.sqMtr} Sq. Mtr.`],
+                ["Total Plinth area of Property", `: ${calc.totalPlinth} Sq.Mtrs.`],
+                ["Plinth area under sale", `: ${calc.sqMtr} Sq.Mtrs`],
+                ["Land Use", ": Residential"],
+                ["Minimum price of land fixed by the Govt.", `: Rs. ${f(calc.landRate)}/- per Sq. Mtr.`],
+                ["Minimum value of land", `: ${calc.sqMtr} X Rs.${f(calc.landRate)}/- =Rs.${f(calc.landVal)}/-`],
+                ["Minimum price of Const. Fixed by the Govt.", `: Rs. ${f(calc.constRate)}/- per Sq.Mtrs.`],
+                ["Minimum value of Construction", `: ${calc.sqMtr} X4X Rs.${f(calc.constRate)}/- = Rs.${f(calc.constVal)}/-`],
+                ["Total Value of Property", `: Rs.${f(calc.totalVal)}/-`],
+                ["Total stamp duty paid on", `: Rs.${f(calc.consideration)}/-`]
+            ].map(([label, val], index) => {
+                const isBold = index >= 10;
+                return new TableRow({
+                    children: [
+                        new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: cellBorder, children: [pStandard(label, isBold, AlignmentType.LEFT)] }),
+                        new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: cellBorder, children: [pStandard(val, isBold, AlignmentType.LEFT)] })
+                    ]
+                });
+            });
+
+            const page1 = [
+                new Paragraph({ spacing: { after: 600 }, children: [] }),
+                pStandard(`SALE DEED FOR Rs. ${f(calc.consideration)}/-`, true, AlignmentType.CENTER),
+                pStandard("Description of property", true, AlignmentType.CENTER),
+                new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: p1TableRows }),
+                new Paragraph({ spacing: { after: 600 }, children: [] }),
+                pStandard(data.genderLabel, true, AlignmentType.RIGHT),
+                pStandard(`Corporation Duty..3 %..@..Rs.${f(calc.consideration * 0.03)}/-`, false, AlignmentType.RIGHT),
+                pStandard(`Stamp Duty..3 %..@..Rs.${f(calc.consideration * 0.03)}/-`, false, AlignmentType.RIGHT),
+                pStandard(`Total Duty ..6%..@..Rs.${f(calc.duty)}/-`, true, AlignmentType.RIGHT),
+            ];
+
+            // Page 2 Table (Boundaries with spacing)
+            const boundaryTable = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({ width: { size: 10, type: WidthType.PERCENTAGE }, children: [pStandard(`EAST`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [pStandard(`:-`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 35, type: WidthType.PERCENTAGE }, children: [pStandard(`${data.eB}`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 10, type: WidthType.PERCENTAGE }, children: [pStandard(`WEST`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [pStandard(`:-`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 35, type: WidthType.PERCENTAGE }, children: [pStandard(`${data.wB}`, true, AlignmentType.LEFT)] })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            new TableCell({ width: { size: 10, type: WidthType.PERCENTAGE }, children: [pStandard(`NORTH`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [pStandard(`:-`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 35, type: WidthType.PERCENTAGE }, children: [pStandard(`${data.nB}`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 10, type: WidthType.PERCENTAGE }, children: [pStandard(`SOUTH`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [pStandard(`:-`, true, AlignmentType.LEFT)] }),
+                            new TableCell({ width: { size: 35, type: WidthType.PERCENTAGE }, children: [pStandard(`${data.sB}`, true, AlignmentType.LEFT)] })
+                        ]
+                    })
+                ]
+            });
+
+            const page2 = [
+                new Paragraph({ children: [new PageBreak()] }),
+                pBody("This SALE DEED is made and executed at New Delhi on this --------by and between:-", false, AlignmentType.LEFT),
+                pBody(`${data.vName} ${data.vRel} ${data.vRelName} RESIDENT OF ${data.vAddress}, Hereinafter referred to as "the VENDOR" (which expression, herein used, shall mean and include her legal heirs, successors, legal representatives, administrators, executors, nominees and assignees) of the one part.`),
+                pBody("IN FAVOUR OF", true, AlignmentType.CENTER),
+                pBody(`${data.dName} ${data.dRel} ${data.dRelName} RESIDENT OF ${data.dAddress}, Hereinafter called "The VENDEES", (which expression, herein used, shall mean and include her legal heirs, successors, legal representatives, administrators, executors, nominees and assignees of the other part.`),
+                pBody(`WHEREAS the VENDOR is the absolute and exclusive owner and in possession of ${data.propDesc}, and the above mentioned property is bounded as under :-`),
+                boundaryTable,
+            ];
+
+            const page3 = [
+                new Paragraph({ children: [new PageBreak()] }),
+                pBody(`(hereinafter referred to as the "Said Property") vide GPA duly Notarized by the Notary Public Delhi, having purchased from ${data.priorOwner} to do all acts, deeds and things including the power to sell and transfer the same in any manner.`),
+                pBody(`AND WHEREAS the VENDOR has full power and absolute authority to sell and transfer the aforesaid property unto the VENDEES, and to receive the sale consideration in her own name and neither anyone else has any right, title and interest in the aforesaid property nor there is any legal impediment which prohibits the VENDOR to sell the same unto the VENDEES.`),
+                pBody(`AND WHEREAS the VENDOR has agreed to sell, convey, transfer and assign her all rights, titles and interests in the aforesaid ${data.propDesc}, hereinafter referred to as "the said property", alongwith all benefits, facilities, privileges, easements or advantages belonging to or in any way appertaining to the said property to the VENDEES.`),
+                pBody(`AND WHEREAS the VENDEES has agreed to purchase, acquire and possess the said property relying on the various assurances, covenants, representations, statements and undertaking given by the VENDOR and believing the same to be true and acting on the faith thereof and on the terms and conditions mentioned hereunder.`),
+            ];
+
+            const page4 = [
+                new Paragraph({ children: [new PageBreak()] }),
+                pBody("NOW THIS SALE DEED WITNESSETH AS UNDER:-", true, AlignmentType.CENTER),
+                pBody(`1. That in consideration of the said sum of Rs.${f(calc.consideration)}/- (Rupees Twenty Five Lakh only), the VENDOR hereby sell, convey, alienate and transfer all her rights, titles and interests in the said property, along with boundary wall, fittings, fixtures and super structure thereon and all other estate rights whatsoever, including all easements, appurtenances to the said property as also enjoyed or reputed to be enjoyed therewith unto the VENDEES, in perfect and absolute ownership without any hindrance, disturbance, whatsoever, TO HAVE, TO HOLD AND TO ENJOY THE SAME ABSOLUTELY AND FOREVER.`),
+                pBody(`2. That the VENDOR hereby explicitly admits and declares that receiving the aforesaid consideration in full and final payment, now nothing is left due from the VENDEES to the VENDOR against sale consideration for the purchase of the said property, as the aforesaid consideration represents the full and final consideration for the transaction.`),
+                pBody(`3. That the VENDOR has delivered the peaceful and actual physical vacant possession of the said property unto the VENDEES on the spot.`),
+                pBody(`4. That the VENDOR hereby sell, grant, convey, transfer and assign, with the ownership rights of the said property together with the super structure thereon, unto the VENDEES, and the VENDOR hereby transfers all her rights, titles and interests, along with all the rights, privileges, easements and appurtenances, whatsoever in the said property, belonging and usually held therewith including all electric, water and all the estate right, title, and interest in the said property, hereby conveyed, and every part thereof TO HAVE AND TO HOLD THE SAME unto the VENDEES absolutely and forever.`),
+            ];
+
+            const page5 = [
+                new Paragraph({ children: [new PageBreak()] }),
+                pBody(`5. That the VENDOR hereby assure the VENDEES that the said property, hereby conveyed, is free from all sorts of charges, encumbrances, lien, loan, claims, demands, and liabilities, surety, security, legal flaws, disputes, sale, mortgage, gift, liabilities, disabilities, injunction, notifications for acquisitions/requisition, and if ever it is proved to be otherwise and the VENDEES suffers, due to any legal defect in the title of the VENDOR, any loss and/or whole or any part of the said property, hereby conveyed, is taken away from the possession of the VENDEES, then the VENDOR will make good the losses thus suffered by the VENDEES in this regard and shall keep the VENDEES indemnified against all losses, costs, damages and expenses accruing thereby to the VENDEES.`),
+                pBody(`6. That the VENDOR hereby further assure the VENDEES that she or anyone else claiming from or through the VENDOR has not created any encumbrances or license or restriction thereon nor there is any claim or litigation or legal proceeding injunction or attachment concerning the said property.`),
+                pBody(`7. That the VENDOR now admits that she has been left with no right, title and interest of any nature, whatsoever may be in the said property, and the VENDEES has become the absolute owner of the same and she will use and enjoy the same in any manner, she likes, including right to sell, transfer or alienate the said property to anyone including the right to give the same on rent to anyone and to receive the rent and profit to the tenant(s) evicted through the process of law or by negotiation, to take possession etc.`),
+                pBody(`8. That the VENDEES can get the mutation of the said property in her own name in the absence of the VENDOR on the basis of this sale deed or its certified true copy in the revenue records.`),
+            ];
+
+            const signatureTable = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                width: { size: 50, type: WidthType.PERCENTAGE },
+                                children: [
+                                    pStandard("WITNESSES:-", true, AlignmentType.LEFT),
+                                    pStandard("1.", false, AlignmentType.LEFT),
+                                    pStandard(data.w1Name, true, AlignmentType.LEFT),
+                                    pStandard(`${data.w1Rel} ${data.w1RelName}`, false, AlignmentType.LEFT),
+                                    pStandard(data.w1Address, false, AlignmentType.LEFT),
+                                    pStandard(`(AADHAR NO. ${data.w1Aadhar})`, true, AlignmentType.LEFT),
+                                    new Paragraph({ spacing: { after: 200 }, children: [] }),
+                                    pStandard("2.", false, AlignmentType.LEFT),
+                                    pStandard(data.w2Name, true, AlignmentType.LEFT),
+                                    pStandard(`${data.w2Rel} ${data.w2RelName}`, false, AlignmentType.LEFT),
+                                    pStandard(data.w2Address, false, AlignmentType.LEFT),
+                                    pStandard(`(AADHAR NO. ${data.w2Aadhar})`, true, AlignmentType.LEFT),
+                                ]
+                            }),
+                            new TableCell({
+                                width: { size: 50, type: WidthType.PERCENTAGE },
+                                children: [
+                                    pStandard("VENDOR", true, AlignmentType.RIGHT),
+                                    new Paragraph({ spacing: { after: 800 }, children: [] }),
+                                    pStandard("VENDEES", true, AlignmentType.RIGHT),
+                                    new Paragraph({ spacing: { after: 800 }, children: [] }),
+                                ]
+                            })
+                        ]
+                    })
+                ]
+            });
+
+            const page6 = [
+                new Paragraph({ children: [new PageBreak()] }),
+                pBody(`9. That the VENDOR and all persons claiming under or through the VENDOR shall and will as and when required by the VENDEES and at the VENDEE'S costs to do all act and execute all documents and authorities as be reasonable required by the VENDEES for more fully effecting the sale being hereby made or for more fully owning and enjoying the said property or defending any action or proceeding concerning the same.`),
+                pBody(`10. That VENDOR will be responsible for the payment of the rates, cesses, taxes, payable in respect of the said property, up to date, and thereafter the VENDEES will be responsible for the payment of the same.`),
+                pBody(`11. That the VENDEES has paid the stamp duty, transfer duty, registration charges and other incidental charges for the execution of this Sale deed.`),
+                pBody(`12. That both the parties, hereto i.e. the VENDOR and the VENDEES are Indian National.`),
+                pBody(`IN WITNESS WHEREOF, the VENDOR and the VENDEES have set subscribed their hands to this sale deed on the day, month and year, first mentioned above, in the presence of the following witnesses.`, false, AlignmentType.JUSTIFIED),
+                new Paragraph({ spacing: { after: 300 }, children: [] }),
+                signatureTable
+            ];
+
+            const doc = new Document({
+                sections: [{
+                    properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } },
+                    children: [...page1, ...page2, ...page3, ...page4, ...page5, ...page6]
+                }]
+            });
+
+            Packer.toBlob(doc).then(blob => {
+                saveAs(blob, `Sale_Deed_${calc.sqYds}_SqYds.docx`);
+            }).catch(err => {
+                console.error("Error generating document: ", err);
+                alert("An error occurred while generating the document.");
+            });
+        }
+    </script>
+</body>
+</html>
